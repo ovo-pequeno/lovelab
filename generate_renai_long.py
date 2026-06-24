@@ -46,10 +46,10 @@ TMP_DIR  = "tmp_renai"
 LOG_PATH = "used_log_renai.json"
 AVOID_RECENT = 40
 
-BG_IMAGE = "assets/bg_wide.png" if os.path.exists("assets/bg_long.png") else None
+BG_IMAGE = "assets/bg_long.png" if os.path.exists("assets/bg_long.png") else None
 USE_OVERLAY = True
 OVERLAY_OPACITY = 0.45
-BGM_PATH = "assets/bgm.mp3" if os.path.exists("assets/bgm_long.mp3") else None
+BGM_PATH = "assets/bgm_long.mp3" if os.path.exists("assets/bgm_long.mp3") else None
 BGM_VOLUME = 0.12
 
 HEADER_TEXT = "天使のたまご"
