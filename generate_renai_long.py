@@ -71,7 +71,7 @@ if not os.path.exists(HEADER_FONT):
     HEADER_FONT = FONT
 TEXT_COLOR = "white"
 STROKE_COLOR = "#FF5FA8"
-MAIN_STROKE_WIDTH = 18
+MAIN_STROKE_WIDTH = 10
 FONT_SIZE_TITLE   = 90
 FONT_SIZE_BODY    = 62
 FONT_SIZE_LABEL   = 52
@@ -236,7 +236,7 @@ def make_background(duration, bg_color=(20, 20, 40)):
 
 
 def make_outlined_clip(text, duration, fontsize, font=None,
-                       stroke_color=None, stroke_width=None, interline=14, size=None):
+                       stroke_color=None, stroke_width=None, interline=22, size=None):
     if font is None: font = FONT
     if stroke_color is None: stroke_color = STROKE_COLOR
     if stroke_width is None: stroke_width = MAIN_STROKE_WIDTH
