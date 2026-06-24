@@ -1,0 +1,8 @@
+google-genai
+moviepy==1.0.3
+pillow==9.5.0
+pydub
+requests
+google-api-python-client
+google-auth
+imageio-ffmpeg
