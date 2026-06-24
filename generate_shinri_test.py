@@ -44,10 +44,10 @@ OUT_DIR  = "out_shinri"
 LOG_PATH = "used_log_shinri.json"
 AVOID_RECENT = 40
 
-BG_IMAGE = "assets/shinri_bg.png" if os.path.exists("assets/bg_short.png") else None
+BG_IMAGE = "assets/bg_short.png" if os.path.exists("assets/bg_short.png") else None
 USE_OVERLAY = True
 OVERLAY_OPACITY = 0.45
-BGM_PATH = "assets/bgm.mp3" if os.path.exists("assets/bgm_short.mp3") else None
+BGM_PATH = "assets/bgm_short.mp3" if os.path.exists("assets/bgm_short.mp3") else None
 BGM_VOLUME = 0.15
 
 client = genai.Client(api_key=GEMINI_API_KEY)
