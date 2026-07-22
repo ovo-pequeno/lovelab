@@ -1,15 +1,16 @@
-name: daily-shinri-test
+name: daily-tarot-shorts
 
 on:
   schedule:
-    - cron: "13 3 * * *"
+    - cron: "33 23 * * *"
+    - cron: "7 11 * * *"
   workflow_dispatch: {}
 
 permissions:
   contents: write
 
 concurrency:
-  group: daily-shinri-test
+  group: daily-tarot-shorts
   cancel-in-progress: false
 
 jobs:
@@ -17,16 +18,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-
       - name: Start VOICEVOX engine (Docker)
         run: |
           docker run -d --name voicevox -p 50021:50021 voicevox/voicevox_engine:cpu-latest
-          echo "VOICEVOXコンテナ起動。Python側でreadyを待ちます。"
-
       - name: Install system deps (ffmpeg / ImageMagick / fonts)
         run: |
           sudo apt-get update
@@ -37,28 +34,24 @@ jobs:
           sudo fc-cache -f
           sudo sed -i 's/<policy domain="path" rights="none" pattern="@\*"\/>//' /etc/ImageMagick-6/policy.xml || true
           sudo sed -i 's/<policy domain="path" rights="none" pattern="@\*"\/>//' /etc/ImageMagick-7/policy.xml || true
-
       - name: Install python deps
         run: pip install -r requirements.txt
-
-      - name: Generate and upload (shinri / VOICEVOX)
+      - name: Generate and upload
         env:
           GEMINI_API_KEY:   ${{ secrets.GEMINI_API_KEY }}
           YT_CLIENT_ID:     ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           PRIVACY: "public"
-        run: python generate_shinri_test.py
-
+        run: python generate_tarot_shorts.py
       - name: Stop VOICEVOX engine
         if: always()
         run: docker rm -f voicevox || true
-
       - name: Commit dedup log
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add used_log_shinri.json
-          git commit -m "update shinri dedup log [skip ci]" || echo "no changes"
+          git add used_log_tarot_shorts.json
+          git commit -m "update tarot-shorts dedup log [skip ci]" || echo "no changes"
           git pull --rebase origin main
           git push
