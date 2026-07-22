@@ -91,7 +91,8 @@ def generate_reading(theme, cards, avoid_summaries, max_retries=5):
     card_desc = "\n".join(
         f"選択肢{chr(65+i)}: カード「{c['jp']}」（{'逆位置' if c['reversed'] else '正位置'}）"
         for i, c in enumerate(cards))
-    prompt = f"""あなたは優しいタロット占い師です。恋愛テーマの「選択式リーディング」動画の台本を作ります。
+    prompt = f"""あなたはタロット占いの台本ライターです。恋愛テーマの「選択式リーディング」動画の台本を作ります。
+※占い師のキャラ名（「〜のルナ」等）は名乗らない。自己紹介やキャラ設定は入れず、いきなり本題に入る。
 テーマ：{theme}
 視聴者は直感でA〜Dのグループを1つ選びます。各グループに以下のカードが出ています：
 {card_desc}
@@ -245,6 +246,90 @@ def header_clip(duration):
     return outlined(HEADER_TEXT, duration, HEADER_FONT, 54, "#FFFFFF", 16, int(H*0.05), W-200)
 
 
+def card_back_clip(duration, target_h=int(H*0.42)):
+    """裏向きカードを描画（画像不要・PILで生成）。A〜D一覧用。"""
+    from PIL import Image, ImageDraw
+    import numpy as np
+    w = int(target_h * 0.62)
+    img = Image.new("RGB", (w, target_h), (40, 26, 66))
+    dr = ImageDraw.Draw(img)
+    dr.rectangle([6, 6, w-6, target_h-6], outline=(210, 180, 90), width=6)
+    dr.rectangle([18, 18, w-18, target_h-18], outline=(150, 120, 200), width=3)
+    # 中央に星のモチーフ
+    cx, cy = w//2, target_h//2
+    r = w//5
+    pts = []
+    import math
+    for k in range(10):
+        ang = math.pi/2 + k*math.pi/5
+        rr = r if k % 2 == 0 else r*0.45
+        pts.append((cx + rr*math.cos(ang), cy - rr*math.sin(ang)))
+    dr.polygon(pts, fill=(210, 180, 90))
+    return ImageClip(np.array(img)).set_duration(duration)
+
+
+def scene_spread(cards, audio_file):
+    """イントロ：A〜Dの裏向きカードを横並びで見せる。"""
+    narr = AudioFileClip(audio_file)
+    dur = narr.duration + 0.8
+    layers = [make_bg(dur), header_clip(dur)]
+    layers.append(outlined("あなたが今、気になるのは…？", dur, HEADER_FONT, 56, "#FFE08A", 14, int(H*0.20), W-300))
+    ch_h = int(H*0.40)
+    back = card_back_clip(dur, target_h=ch_h)
+    cw = int(ch_h*0.62)
+    gap = 80
+    total_w = cw*4 + gap*3
+    x0 = (W - total_w)//2
+    y = int(H*0.36)
+    for i in range(4):
+        x = x0 + i*(cw+gap)
+        layers.append(card_back_clip(dur, target_h=ch_h).set_position((x, y)))
+        lab = outlined(chr(65+i), dur, HEADER_FONT, 70, "#FFFFFF", 14, 0, cw+40)
+        layers.append(lab.set_position((x + cw//2 - (cw+40)//2, y + ch_h + 20)))
+    sc = CompositeVideoClip(layers, size=(W, H)).set_duration(dur)
+    if dur > narr.duration + 0.02:
+        narr = CompositeAudioClip([narr]).set_duration(dur)
+    return sc.set_audio(narr)
+
+
+def scene_reading(choice, card, main, audio_file, sub=None):
+    """各選択肢：カードを左に表向き表示したまま、右にコメント。カード出しっぱなし。"""
+    narr = AudioFileClip(audio_file)
+    dur = narr.duration + 0.5
+    layers = [make_bg(dur), header_clip(dur)]
+    pos_txt = "逆位置" if card["reversed"] else "正位置"
+    ci = card_image_clip(card, dur, target_h=int(H*0.52))
+    if ci is not None:
+        card_w = ci.w
+        ci = ci.set_position((int(W*0.08), int(H*0.30)))
+        layers.append(ci)
+        layers.append(outlined(f"{card['jp']}（{pos_txt}）", dur, FONT, 40, ACCENT_COLOR, 9,
+                               int(H*0.86), int(W*0.30)).set_position((int(W*0.08)-40, int(H*0.86))))
+        text_x_center = int(W*0.62)
+        text_w = int(W*0.60)
+    else:
+        layers.append(outlined(f"{card['jp']}（{pos_txt}）", dur, FONT, 56, "#FFFFFF", 12, int(H*0.24), W-300))
+        text_x_center = W//2
+        text_w = W-360
+    # 選択肢ラベル（右上）
+    layers.append(outlined(f"{choice} を選んだあなた", dur, HEADER_FONT, 48, "#FFE08A", 12,
+                           int(H*0.20), text_w).set_position(("center" if ci is None else int(W*0.62)-text_w//2, int(H*0.20))))
+    # コメント本文（右側 or 中央）
+    body_clip = outlined(main, dur, FONT, 50, TEXT_COLOR, 12, int(H*0.46), text_w)
+    if ci is not None:
+        body_clip = body_clip.set_position((int(W*0.62)-text_w//2, int(H*0.44)))
+    layers.append(body_clip)
+    if sub:
+        sub_clip = outlined(sub, dur, FONT, 40, ACCENT_COLOR, 9, int(H*0.72), text_w)
+        if ci is not None:
+            sub_clip = sub_clip.set_position((int(W*0.62)-text_w//2, int(H*0.72)))
+        layers.append(sub_clip)
+    sc = CompositeVideoClip(layers, size=(W, H)).set_duration(dur)
+    if dur > narr.duration + 0.02:
+        narr = CompositeAudioClip([narr]).set_duration(dur)
+    return sc.set_audio(narr)
+
+
 def scene_text(main_text, audio_file, sub=None, big=False):
     narr = AudioFileClip(audio_file)
     dur = narr.duration + 0.6
@@ -297,26 +382,31 @@ def build_video(data, cards):
     output = os.path.join(OUT_DIR, f"{safe.strip()[:60]}.mp4")
 
     clips = []; idx = 0
-    # イントロ
+    # イントロ（テキスト）
     a = make_audio(data["intro"], f"a_{idx}.mp3", tail_cut=80)
     p = f"{TMP_DIR}/clip_{idx:04d}.mp4"; render(scene_text(data["intro"], a, big=True), p)
     clips.append(p); os.remove(a); idx += 1
-    # A〜D
+    # カード一覧（A〜D裏向き）
+    a = make_audio("A、B、C、D。直感で、気になるカードを一つ選んでください。", f"a_{idx}.mp3", tail_cut=80)
+    p = f"{TMP_DIR}/clip_{idx:04d}.mp4"; render(scene_spread(cards, a), p)
+    clips.append(p); os.remove(a); idx += 1
+    # A〜D（各選択肢：カードを表向き表示したままコメント）
     for i, rd in enumerate(data["readings"][:4]):
         choice = rd.get("choice", chr(65+i))
         card = cards[i]
-        # カード提示
-        a = make_audio(f"{choice}を選んだあなた。カードは、{card['jp']}です。", f"a_{idx}.mp3", tail_cut=80)
-        p = f"{TMP_DIR}/clip_{idx:04d}.mp4"; render(scene_card(choice, card, rd.get("card_line",""), a), p)
+        # カードをめくる（カード名を読み上げつつ、カード＋最初のコメント）
+        first_body = (rd.get("body") or [""])[0]
+        a = make_audio(f"{choice}を選んだあなた。カードは、{card['jp']}です。{first_body}", f"a_{idx}.mp3", tail_cut=90)
+        p = f"{TMP_DIR}/clip_{idx:04d}.mp4"; render(scene_reading(choice, card, first_body, a), p)
         clips.append(p); os.remove(a); idx += 1
-        # 本文
-        for b in rd.get("body", []):
+        # 残りの本文（カード出したまま）
+        for b in rd.get("body", [])[1:]:
             a = make_audio(b, f"a_{idx}.mp3", tail_cut=100)
-            p = f"{TMP_DIR}/clip_{idx:04d}.mp4"; render(scene_text(b, a, sub=f"{choice}のあなたへ"), p)
+            p = f"{TMP_DIR}/clip_{idx:04d}.mp4"; render(scene_reading(choice, card, b, a), p)
             clips.append(p); os.remove(a); idx += 1
-        # アドバイス
+        # アドバイス（カード出したまま）
         a = make_audio(rd.get("advice",""), f"a_{idx}.mp3", tail_cut=80)
-        p = f"{TMP_DIR}/clip_{idx:04d}.mp4"; render(scene_text(rd.get("advice",""), a, sub="今日のアドバイス", big=True), p)
+        p = f"{TMP_DIR}/clip_{idx:04d}.mp4"; render(scene_reading(choice, card, rd.get("advice",""), a, sub="今日のアドバイス"), p)
         clips.append(p); os.remove(a); idx += 1
     # アウトロ
     a = make_audio(data["outro"], f"a_{idx}.mp3", tail_cut=80)
