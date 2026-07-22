@@ -179,8 +179,8 @@ def header(d):
 
 
 def scene_with_card(card, main, audio_file, sub=None, card_h=int(H*0.40)):
-    """カードを上部に固定表示したまま、下にラベル＋本文を出す。
-    全シーンでカードが出っぱなしになる。"""
+    """カードを上部に固定表示したまま、下にカード名＋本文を出す。
+    ラベル（今日のカード等）はヘッダーと被るので廃止し、本文を引き上げる。"""
     narr=AudioFileClip(audio_file); d=narr.duration+0.5
     pos="逆位置" if card["reversed"] else "正位置"
     layers=[make_bg(d),header(d)]
@@ -190,9 +190,7 @@ def scene_with_card(card, main, audio_file, sub=None, card_h=int(H*0.40)):
         layers.append(outlined(f"{card['jp']}（{pos}）",d,FONT,44,ACCENT_COLOR,9,int(H*0.60),W-140))
     else:
         layers.append(outlined(f"{card['jp']}（{pos}）",d,FONT,64,"#FFFFFF",12,int(H*0.30),W-160))
-    if sub:
-        layers.append(outlined(sub,d,HEADER_FONT,46,"#FFE08A",10,int(H*0.70),W-160))
-    layers.append(outlined(main,d,FONT,58,TEXT_COLOR,12,int(H*0.82),W-120))
+    layers.append(outlined(main,d,FONT,60,TEXT_COLOR,12,int(H*0.72),W-120))
     sc=CompositeVideoClip(layers,size=(W,H)).set_duration(d)
     if d>narr.duration+0.02: narr=CompositeAudioClip([narr]).set_duration(d)
     return sc.set_audio(narr)
