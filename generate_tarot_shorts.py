@@ -5,6 +5,7 @@
 # Gemini → VOICEVOX → MoviePy → YouTube API / 縦型1080x1920
 # =========================================================
 import os, re, json, time, gc, random, requests
+from tarot_deck import draw_from_dir, TAROT_DECK
 from google import genai
 try:
     from google.genai import types as genai_types
@@ -49,13 +50,6 @@ if not os.path.exists(HEADER_FONT): HEADER_FONT = FONT
 TEXT_COLOR="white"; ACCENT_COLOR="#E7C8FF"; STROKE_COLOR="#2A1740"
 HEADER_TEXT="今日のタロット"
 
-MAJOR_ARCANA = [
-    ("00_fool","愚者"),("01_magician","魔術師"),("02_high_priestess","女教皇"),("03_empress","女帝"),
-    ("04_emperor","皇帝"),("05_hierophant","教皇"),("06_lovers","恋人"),("07_chariot","戦車"),
-    ("08_strength","力"),("09_hermit","隠者"),("10_wheel","運命の輪"),("11_justice","正義"),
-    ("12_hanged_man","吊るされた男"),("13_death","死神"),("14_temperance","節制"),("15_devil","悪魔"),
-    ("16_tower","塔"),("17_star","星"),("18_moon","月"),("19_sun","太陽"),("20_judgement","審判"),("21_world","世界"),
-]
 
 
 def load_log():
@@ -184,25 +178,21 @@ def header(d):
     return outlined(HEADER_TEXT,d,HEADER_FONT,72,"#FFFFFF",18,int(H*0.05),W-120)
 
 
-def scene_card(card, audio_file):
-    narr=AudioFileClip(audio_file); d=narr.duration+0.6
+def scene_with_card(card, main, audio_file, sub=None, card_h=int(H*0.40)):
+    """カードを上部に固定表示したまま、下にラベル＋本文を出す。
+    全シーンでカードが出っぱなしになる。"""
+    narr=AudioFileClip(audio_file); d=narr.duration+0.5
     pos="逆位置" if card["reversed"] else "正位置"
     layers=[make_bg(d),header(d)]
-    ci=card_clip(card,d)
+    ci=card_clip(card,d,target_h=card_h)
     if ci is not None:
-        layers.append(ci.set_position(("center",int(H*0.22))))
-        layers.append(outlined(f"{card['jp']}（{pos}）",d,FONT,52,ACCENT_COLOR,10,int(H*0.70),W-120))
+        layers.append(ci.set_position(("center",int(H*0.16))))
+        layers.append(outlined(f"{card['jp']}（{pos}）",d,FONT,44,ACCENT_COLOR,9,int(H*0.60),W-140))
     else:
-        layers.append(outlined(f"{card['jp']}\n（{pos}）",d,FONT,90,"#FFFFFF",14,int(H*0.42),W-160))
-    sc=CompositeVideoClip(layers,size=(W,H)).set_duration(d)
-    if d>narr.duration+0.02: narr=CompositeAudioClip([narr]).set_duration(d)
-    return sc.set_audio(narr)
-
-def scene_text(main, audio_file, sub=None):
-    narr=AudioFileClip(audio_file); d=narr.duration+0.5
-    layers=[make_bg(d),header(d)]
-    if sub: layers.append(outlined(sub,d,HEADER_FONT,50,"#FFE08A",10,int(H*0.30),W-140))
-    layers.append(outlined(main,d,FONT,64,TEXT_COLOR,12,int(H*0.48),W-140))
+        layers.append(outlined(f"{card['jp']}（{pos}）",d,FONT,64,"#FFFFFF",12,int(H*0.30),W-160))
+    if sub:
+        layers.append(outlined(sub,d,HEADER_FONT,46,"#FFE08A",10,int(H*0.70),W-160))
+    layers.append(outlined(main,d,FONT,58,TEXT_COLOR,12,int(H*0.82),W-120))
     sc=CompositeVideoClip(layers,size=(W,H)).set_duration(d)
     if d>narr.duration+0.02: narr=CompositeAudioClip([narr]).set_duration(d)
     return sc.set_audio(narr)
@@ -222,18 +212,18 @@ def build_video(card, data):
     for ch in r'\/:*?"<>|': safe=safe.replace(ch,"")
     output=os.path.join(OUT_DIR,f"{safe.strip()[:60]}.mp4")
     clips=[]; idx=0
-    # カード提示
+    # カード提示（導入）
     a=make_audio(f"今日のカードは、{card['jp']}。{data.get('keyword','')}",f"a_{idx}.mp3",tail_cut=80)
-    p=f"{TMP_DIR}/clip_{idx:04d}.mp4"; render(scene_card(card,a),p); clips.append(p); os.remove(a); idx+=1
-    # 意味
+    p=f"{TMP_DIR}/clip_{idx:04d}.mp4"; render(scene_with_card(card,data.get('keyword',''),a,sub="今日のカード"),p); clips.append(p); os.remove(a); idx+=1
+    # 意味（カードは出したまま）
     a=make_audio(data.get("meaning",""),f"a_{idx}.mp3",tail_cut=100)
-    p=f"{TMP_DIR}/clip_{idx:04d}.mp4"; render(scene_text(data.get("meaning",""),a,sub="カードの意味"),p); clips.append(p); os.remove(a); idx+=1
+    p=f"{TMP_DIR}/clip_{idx:04d}.mp4"; render(scene_with_card(card,data.get("meaning",""),a,sub="カードの意味"),p); clips.append(p); os.remove(a); idx+=1
     # メッセージ
     a=make_audio(data.get("message",""),f"a_{idx}.mp3",tail_cut=100)
-    p=f"{TMP_DIR}/clip_{idx:04d}.mp4"; render(scene_text(data.get("message",""),a,sub="今日のあなたへ"),p); clips.append(p); os.remove(a); idx+=1
+    p=f"{TMP_DIR}/clip_{idx:04d}.mp4"; render(scene_with_card(card,data.get("message",""),a,sub="今日のあなたへ"),p); clips.append(p); os.remove(a); idx+=1
     # アクション
     a=make_audio(data.get("action",""),f"a_{idx}.mp3",tail_cut=100)
-    p=f"{TMP_DIR}/clip_{idx:04d}.mp4"; render(scene_text(data.get("action",""),a,sub="今日のワンアクション"),p); clips.append(p); os.remove(a); idx+=1
+    p=f"{TMP_DIR}/clip_{idx:04d}.mp4"; render(scene_with_card(card,data.get("action",""),a,sub="今日のワンアクション"),p); clips.append(p); os.remove(a); idx+=1
 
     lf=f"{TMP_DIR}/list.txt"
     with open(lf,"w") as f:
@@ -282,8 +272,7 @@ def upload(youtube,path,title):
 def main():
     wait_voicevox(); resolve_speaker()
     log=load_log(); avoid=[e.get("summary","") for e in log][-AVOID_RECENT:]
-    card=random.choice(MAJOR_ARCANA)
-    card={"file":card[0],"jp":card[1],"reversed":random.random()<0.4}
+    card=draw_from_dir(CARD_DIR, n=1)[0]
     print(f"カード:{card['jp']} {'逆' if card['reversed'] else '正'}")
     data=generate_message(card,avoid)
     path,title=build_video(card,data)

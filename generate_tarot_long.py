@@ -6,6 +6,7 @@
 # Gemini → VOICEVOX → MoviePy → YouTube API / 横型1920x1080
 # =========================================================
 import os, re, json, time, gc, random, requests
+from tarot_deck import draw_from_dir, TAROT_DECK
 from google import genai
 try:
     from google.genai import types as genai_types
@@ -65,18 +66,6 @@ ACCENT_COLOR = "#E7C8FF"    # 淡い紫
 STROKE_COLOR = "#2A1740"
 HEADER_TEXT = "天使のたまご タロット"
 
-# 大アルカナ22枚（番号_英名＝画像ファイル名 / 日本語名）
-MAJOR_ARCANA = [
-    ("00_fool", "愚者"), ("01_magician", "魔術師"), ("02_high_priestess", "女教皇"),
-    ("03_empress", "女帝"), ("04_emperor", "皇帝"), ("05_hierophant", "教皇"),
-    ("06_lovers", "恋人"), ("07_chariot", "戦車"), ("08_strength", "力"),
-    ("09_hermit", "隠者"), ("10_wheel", "運命の輪"), ("11_justice", "正義"),
-    ("12_hanged_man", "吊るされた男"), ("13_death", "死神"), ("14_temperance", "節制"),
-    ("15_devil", "悪魔"), ("16_tower", "塔"), ("17_star", "星"),
-    ("18_moon", "月"), ("19_sun", "太陽"), ("20_judgement", "審判"), ("21_world", "世界"),
-]
-
-
 def load_log():
     if os.path.exists(LOG_PATH):
         try:
@@ -90,16 +79,6 @@ def load_log():
 def save_log(log):
     with open(LOG_PATH, "w", encoding="utf-8") as f:
         json.dump(log, f, ensure_ascii=False, indent=1)
-
-
-def draw_cards(n):
-    """大アルカナからn枚引く（重複なし）。正位置/逆位置もランダム。"""
-    picks = random.sample(MAJOR_ARCANA, n)
-    result = []
-    for fname, jp in picks:
-        reversed_ = random.random() < 0.4
-        result.append({"file": fname, "jp": jp, "reversed": reversed_})
-    return result
 
 
 def generate_reading(theme, cards, avoid_summaries, max_retries=5):
@@ -408,7 +387,7 @@ def main():
     themes = ["片思いの相手の気持ち", "あの人との今後", "復縁の可能性", "出会い・新しい恋",
               "相手の本音", "二人の関係の変化", "恋の障害と乗り越え方", "あの人があなたをどう見ているか"]
     theme = random.choice(themes)
-    cards = draw_cards(4)
+    cards = draw_from_dir(CARD_DIR, n=4)
     print(f"テーマ:{theme} / カード:{[c['jp'] for c in cards]}")
     data = generate_reading(theme, cards, avoid)
     path, title = build_video(data, cards)
