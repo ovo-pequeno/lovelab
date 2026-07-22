@@ -42,7 +42,6 @@ jobs:
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           PRIVACY: "public"
-          NUM_TIPS: "5"
         run: python generate_renai_tips_shorts.py
       - name: Stop VOICEVOX engine
         if: always()

@@ -1,9 +1,10 @@
 # =========================================================
-# 恋愛「相手の気持ちを確かめる方法」Shorts｜VOICEVOX春日部つむぎ
-# 健全な心理・コミュニケーションのヒントを数個。断定/操作でなく気づき重視。
+# 恋愛の悩みヒント Shorts｜VOICEVOX春日部つむぎ
+# 1日1テーマ（回避型・復縁・不安型・音信不通 等）×1ヒントをじっくり深掘り。
+# 実践的で具体的、でも相手も自分も尊重するライン（操作/執着煽りはNG）。
 # Gemini → VOICEVOX → MoviePy → YouTube API / 縦型1080x1920
 # =========================================================
-import os, re, json, time, gc, requests
+import os, re, json, time, gc, random, requests
 from google import genai
 try:
     from google.genai import types as genai_types
@@ -30,11 +31,10 @@ PRIVACY = os.environ.get("PRIVACY", "public")
 MODEL   = os.environ.get("MODEL", "gemini-2.5-flash")
 
 VOICEVOX_URL="http://127.0.0.1:50021"; SPEAKER_ID=8; SPEAKER_NAME="春日部つむぎ"; SPEAKER_STYLE="ノーマル"
-VOICE_SPEED=1.25
-NUM_TIPS=int(os.environ.get("NUM_TIPS","5"))
-OUT_DIR="out_renai_s"; TMP_DIR="tmp_renai_s"; LOG_PATH="used_log_renai_tips.json"; AVOID_RECENT=40
+VOICE_SPEED=1.22
+OUT_DIR="out_renai_s"; TMP_DIR="tmp_renai_s"; LOG_PATH="used_log_renai_tips.json"; AVOID_RECENT=50
 BG_IMAGE = "assets/bg_renai_short.png" if os.path.exists("assets/bg_renai_short.png") else None
-BG_COLOR=(48,22,44)   # 落ち着いたローズ
+BG_COLOR=(48,22,44)
 BGM_PATH = "assets/bgm_renai.mp3" if os.path.exists("assets/bgm_renai.mp3") else None
 BGM_VOLUME=0.10
 
@@ -46,7 +46,23 @@ if not os.path.exists(FONT): FONT = "/usr/share/fonts/opentype/noto/NotoSansCJK-
 HEADER_FONT = "/usr/share/fonts/truetype/custom/PottaOne-Regular.ttf"
 if not os.path.exists(HEADER_FONT): HEADER_FONT = FONT
 TEXT_COLOR="white"; ACCENT_COLOR="#FFC0DA"; STROKE_COLOR="#3A1030"
-HEADER_TEXT="恋のヒント"
+HEADER_TEXT="恋の処方箋"
+
+# 悩みテーマのプール（Geminiがこの中から1つ選び、その日のヒントを深掘り）
+THEMES = [
+    "回避型の相手との向き合い方",
+    "復縁を引き寄せるための考え方",
+    "不安型の自分との付き合い方",
+    "音信不通のときの心構え",
+    "既読スルーへの対処",
+    "別れたあと自分を整える方法",
+    "追いすぎを止める距離の取り方",
+    "マッチングアプリで疲れないコツ",
+    "彼の本音を引き出す接し方",
+    "片思いを進展させる一歩",
+    "冷却期間の過ごし方",
+    "駆け引きに頼らず惹きつける方法",
+]
 
 
 def load_log():
@@ -60,32 +76,40 @@ def save_log(log):
     with open(LOG_PATH,"w",encoding="utf-8") as f: json.dump(log,f,ensure_ascii=False,indent=1)
 
 
-def generate_tips(avoid, max_retries=5):
+def generate_tip(theme, avoid, max_retries=5):
     models=[MODEL,"gemini-2.5-flash-lite","gemini-3.1-flash-lite"]
     avoid_text=""
     if avoid:
-        avoid_text="\n\n【これらと被らないテーマ・切り口で】\n"+"\n".join(f"- {s}" for s in avoid)
-    prompt=f"""あなたは恋愛カウンセラーです。「相手の気持ちを確かめる方法」をテーマに、
-健全なコミュニケーション・心理のヒントを{NUM_TIPS}個、Shorts台本として作ります。
+        avoid_text="\n\n【これらと被らない切り口・別のヒントにする】\n"+"\n".join(f"- {s}" for s in avoid)
+    prompt=f"""あなたは心理学に詳しい恋愛カウンセラーです。「{theme}」について、
+今日の1つのヒントをじっくり伝えるShorts台本を作ります。
 
-重要なトーン：
-- 相手を操作・誘導したり、詮索・監視するような内容は禁止。
-- 「相手の反応を観察する」「素直に伝える」「自分の気持ちを整理する」など、
-  健全で誠実なコミュニケーションのヒントにする。
-- 断定せず、「こういう見方もある」という気づきベース。
-- 初心者にも実践しやすい、やさしい内容に。
+トーン：
+- 実践的で具体的に。「なるほど、やってみよう」と思える踏み込んだ内容にする。
+- ただし相手を操作・支配したり、執着や不安を煽る方向は禁止。
+  相手も自分も尊重する前提で、効果的に動くための具体的なコツを伝える。
+- 断定しすぎず、でも歯切れよく。視聴者の背中を押す。
+- 1本で1つのヒントを深掘り（あれこれ詰め込まない）。
+
+★心理学の裏付けを入れる：
+- 確立された心理学の概念・効果を1つ根拠として自然に織り込む
+  （例：単純接触効果、返報性の原理、自己開示の返報性、ゲインロス効果、
+   認知的不協和、ピークエンドの法則、愛着理論＝回避型/不安型 など）。
+- 概念名は正確に使うこと。うろ覚えの用語やこじつけはNG。自信がなければ概念名を出さず、
+  一般的な心理の説明にとどめる。
+- 「〇〇という心理があるので」と、理由の部分（reason）で自然に触れる。
+
+構成：フック（問いかけ）→ なぜそうなるか（心理学的な理由）→ 具体的にどうする（実践）→ 一言まとめ。
 
 JSON形式のみ（前後に説明・マークダウン不要）:
 {{
-  "youtube_title": "タップしたくなる日本語タイトル（28文字以内）",
+  "youtube_title": "タップしたくなる日本語タイトル（28文字以内・悩みに刺さる）",
   "summary": "被り防止ログ用一行（30文字以内）",
-  "intro": "冒頭のつかみ（40文字以内）",
-  "tips": [
-    {{"title": "ヒントの見出し（15文字以内）", "body": "説明（60文字以内）"}}
-  ],
-  "outro": "締め・チャンネル登録誘導（40文字以内）"
-}}
-※tipsは必ず{NUM_TIPS}個。{avoid_text}
+  "hook": "冒頭のつかみ・問いかけ（45文字以内）",
+  "reason": "なぜそうなるのか・心理学的な理由（心理効果の名前を自然に入れる・75文字以内）",
+  "action": "具体的にどうすればいいか（70文字以内）",
+  "conclusion": "背中を押す一言まとめ（45文字以内）"
+}}{avoid_text}
 """
     cfg=genai_types.GenerateContentConfig(temperature=1.05) if genai_types else None
     for attempt in range(max_retries):
@@ -94,7 +118,7 @@ JSON形式のみ（前後に説明・マークダウン不要）:
             resp=client.models.generate_content(model=m,contents=prompt,config=cfg) if cfg else client.models.generate_content(model=m,contents=prompt)
             text=resp.text.strip().replace("```json","").replace("```","").strip()
             data=json.loads(text)
-            if not data.get("tips"): raise ValueError("tips空")
+            if not data.get("action"): raise ValueError("action空")
             return data
         except Exception as e:
             msg=str(e)
@@ -165,14 +189,16 @@ def outlined(text,d,font,fs,color,sw,ypos,cw):
     return CompositeVideoClip([st.set_position(("center","center")),fl.set_position(("center","center"))],
                               size=(max(st.w,fl.w),max(st.h,fl.h))).set_duration(d).set_position(("center",ypos))
 
-def header(d):
-    return outlined(HEADER_TEXT,d,HEADER_FONT,68,"#FFFFFF",18,int(H*0.05),W-120)
+def header(d, theme):
+    layers=[outlined(HEADER_TEXT,d,HEADER_FONT,64,"#FFFFFF",18,int(H*0.05),W-120)]
+    layers.append(outlined(theme,d,FONT,40,ACCENT_COLOR,10,int(H*0.14),W-160))
+    return layers
 
-def scene(main, audio_file, label=None, big=False):
+def scene(main, audio_file, theme, label=None, big=False):
     narr=AudioFileClip(audio_file); d=narr.duration+0.5
-    layers=[make_bg(d),header(d)]
-    if label: layers.append(outlined(label,d,HEADER_FONT,54,"#FFE08A",12,int(H*0.30),W-140))
-    layers.append(outlined(main,d,FONT,72 if big else 60,TEXT_COLOR,12,int(H*0.48),W-140))
+    layers=[make_bg(d)]+header(d,theme)
+    if label: layers.append(outlined(label,d,HEADER_FONT,52,"#FFE08A",12,int(H*0.32),W-160))
+    layers.append(outlined(main,d,FONT,68 if big else 60,TEXT_COLOR,12,int(H*0.50),W-140))
     sc=CompositeVideoClip(layers,size=(W,H)).set_duration(d)
     if d>narr.duration+0.02: narr=CompositeAudioClip([narr]).set_duration(d)
     return sc.set_audio(narr)
@@ -185,22 +211,23 @@ def render(s,path):
     s.close(); del s; gc.collect()
 
 
-def build_video(data):
+def build_video(data, theme):
     os.makedirs(OUT_DIR,exist_ok=True); os.makedirs(TMP_DIR,exist_ok=True)
-    title=data.get("youtube_title","相手の気持ちを確かめる方法")
+    title=data.get("youtube_title", theme)
     safe=title
     for ch in r'\/:*?"<>|': safe=safe.replace(ch,"")
     output=os.path.join(OUT_DIR,f"{safe.strip()[:60]}.mp4")
     clips=[]; idx=0
-    a=make_audio(data.get("intro",""),f"a_{idx}.mp3",tail_cut=80)
-    p=f"{TMP_DIR}/clip_{idx:04d}.mp4"; render(scene(data.get("intro",""),a,big=True),p); clips.append(p); os.remove(a); idx+=1
-    for i,t in enumerate(data["tips"]):
-        label=f"{i+1}つめ"
-        a=make_audio(f"{t.get('title','')}。{t.get('body','')}",f"a_{idx}.mp3",tail_cut=100)
-        p=f"{TMP_DIR}/clip_{idx:04d}.mp4"; render(scene(t.get("title",""),a,label=label,big=True),p)
+    steps=[
+        (data.get("hook",""), None, True),
+        (data.get("reason",""), "なぜ？", False),
+        (data.get("action",""), "どうする？", True),
+        (data.get("conclusion",""), None, True),
+    ]
+    for main,label,big in steps:
+        a=make_audio(main,f"a_{idx}.mp3",tail_cut=90)
+        p=f"{TMP_DIR}/clip_{idx:04d}.mp4"; render(scene(main,a,theme,label=label,big=big),p)
         clips.append(p); os.remove(a); idx+=1
-    a=make_audio(data.get("outro",""),f"a_{idx}.mp3",tail_cut=80)
-    p=f"{TMP_DIR}/clip_{idx:04d}.mp4"; render(scene(data.get("outro",""),a),p); clips.append(p); os.remove(a); idx+=1
 
     lf=f"{TMP_DIR}/list.txt"
     with open(lf,"w") as f:
@@ -224,11 +251,12 @@ def get_youtube():
                       client_secret=YT_CLIENT_SECRET,token_uri="https://oauth2.googleapis.com/token")
     creds.refresh(Request()); return build("youtube","v3",credentials=creds)
 
-def upload(youtube,path,title):
-    description=("相手の気持ちを確かめるための、健全なコミュニケーションのヒント。\n"
-                 "誠実に向き合うための気づきとしてどうぞ。\n\n#恋愛 #恋愛相談 #恋愛心理 #相手の気持ち #shorts #Shorts")
+def upload(youtube,path,title,theme):
+    description=(f"恋愛のお悩みヒント：{theme}\n"
+                 "今日の1つのヒントをお届けします。誠実に前へ進むための処方箋。\n\n"
+                 "#恋愛 #恋愛相談 #恋愛心理 #復縁 #回避依存 #shorts #Shorts")
     body={"snippet":{"title":(title+" #shorts")[:100],"description":description[:5000],
-                     "tags":["恋愛","恋愛相談","恋愛心理","相手の気持ち","恋愛アドバイス","Shorts"],
+                     "tags":["恋愛","恋愛相談","恋愛心理","復縁","回避依存","恋愛アドバイス","Shorts"],
                      "categoryId":"24","defaultLanguage":"ja"},
           "status":{"privacyStatus":PRIVACY,"selfDeclaredMadeForKids":False}}
     media=MediaFileUpload(path,chunksize=10*1024*1024,resumable=True)
@@ -249,13 +277,18 @@ def upload(youtube,path,title):
 def main():
     wait_voicevox(); resolve_speaker()
     log=load_log(); avoid=[e.get("summary","") for e in log][-AVOID_RECENT:]
-    data=generate_tips(avoid)
-    print(f"title:{data.get('youtube_title')} / tips:{len(data.get('tips',[]))}")
-    path,title=build_video(data)
+    # 最近使ったテーマは避けて選ぶ
+    recent_themes=[e.get("theme","") for e in log][-6:]
+    pool=[t for t in THEMES if t not in recent_themes] or THEMES
+    theme=random.choice(pool)
+    print(f"テーマ:{theme}")
+    data=generate_tip(theme, avoid)
+    print(f"title:{data.get('youtube_title')}")
+    path,title=build_video(data, theme)
     print(f"done:{path}")
-    youtube=get_youtube(); res=upload(youtube,path,title)
+    youtube=get_youtube(); res=upload(youtube,path,title,theme)
     print(f"uploaded: https://www.youtube.com/watch?v={res['id']}")
-    log.append({"summary":data.get("summary",""),"youtube_title":data.get("youtube_title","")})
+    log.append({"theme":theme,"summary":data.get("summary",""),"youtube_title":data.get("youtube_title","")})
     save_log(log)
 
 if __name__=="__main__":
