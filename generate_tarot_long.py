@@ -30,7 +30,7 @@ YT_CLIENT_ID     = os.environ["YT_CLIENT_ID"]
 YT_CLIENT_SECRET = os.environ["YT_CLIENT_SECRET"]
 YT_REFRESH_TOKEN = os.environ["YT_REFRESH_TOKEN"]
 PRIVACY = os.environ.get("PRIVACY", "public")
-MODEL   = os.environ.get("MODEL", "gemini-2.5-flash")
+MODEL   = os.environ.get("MODEL", "gemini-3.5-flash")
 
 VOICEVOX_URL  = "http://127.0.0.1:50021"
 SPEAKER_ID    = 8
@@ -83,7 +83,7 @@ def save_log(log):
 
 def generate_reading(theme, cards, avoid_summaries, max_retries=5):
     """A〜Dの各選択肢に引いたカードで、恋愛を前向きに読むリーディングを生成。"""
-    models = [MODEL, "gemini-2.5-flash-lite", "gemini-3.1-flash-lite"]
+    models = [MODEL, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]
     avoid_text = ""
     if avoid_summaries:
         joined = "\n".join(f"- {s}" for s in avoid_summaries)
